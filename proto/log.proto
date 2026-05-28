@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package logpulse;
+
+option go_package = "github.com/simonarnost/logpulse/gen/logpulsepb";
+
+import "google/protobuf/timestamp.proto";
+
+enum LogLevel {
+  LOG_LEVEL_UNSPECIFIED = 0;
+  DEBUG = 1;
+  INFO = 2;
+  WARN = 3;
+  ERROR = 4;
+  FATAL = 5;
+}
+
+message LogEntry {
+  string id = 1;
+  google.protobuf.Timestamp timestamp = 2;
+  LogLevel level = 3;
+  string message = 4;
+  string service = 5;
+  string source = 6;
+}

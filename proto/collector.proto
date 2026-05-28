@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package logpulse;
+
+option go_package = "github.com/simonarnost/logpulse/gen/logpulsepb";
+
+import "log.proto";
+
+message IngestResponse {
+  int64 log_count = 1;
+}
+
+service CollectorService {
+  rpc Ingest(stream LogEntry) returns (IngestResponse);
+}
