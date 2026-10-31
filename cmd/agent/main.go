@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"context"
-	"fmt"
+	"io"
 	"log"
+	"os"
 
 	"github.com/simonarnost/logpulse/gen/logpulsepb"
 	"google.golang.org/grpc"
@@ -36,6 +38,31 @@ func mustFinish(stream logpulsepb.CollectorService_IngestClient) *logpulsepb.Ing
 	return res
 }
 
+// entrySender is the subset of the ingest stream streamLines needs; easy to fake in tests.
+type entrySender interface {
+	Send(*logpulsepb.LogEntry) error
+}
+
+// streamLines sends each non-empty line from r as a LogEntry.
+func streamLines(r io.Reader, stream entrySender) error {
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line == "" {
+			continue
+		}
+		if err := stream.Send(&logpulsepb.LogEntry{
+			Level:   logpulsepb.LogLevel_INFO,
+			Message: line,
+			Service: "agent007",
+		}); err != nil {
+			return err
+		}
+	}
+	// Scan returns false on both EOF and error; Err is nil on clean EOF.
+	return scanner.Err()
+}
+
 func main() {
 	conn := mustDial()
 	// Process exits; close error not actionable.
@@ -43,15 +70,8 @@ func main() {
 	client := logpulsepb.NewCollectorServiceClient(conn)
 	stream := mustOpenStream(client)
 
-	// todo -- rewrite mocked logic
-	for i := 0; i < 3; i++ {
-		if err := stream.Send(&logpulsepb.LogEntry{
-			Level:   logpulsepb.LogLevel_INFO,
-			Message: fmt.Sprintf("agent sending log message %d", i),
-			Service: "agent007",
-		}); err != nil {
-			log.Fatalf("sending message through stream failed: %v", err)
-		}
+	if err := streamLines(os.Stdin, stream); err != nil {
+		log.Fatalf("streaming lines failed: %v", err)
 	}
 
 	res := mustFinish(stream)
